@@ -1,0 +1,3 @@
+https://ollama.com/
+https://ollama.com/blog/windows-preview
+https://ollama.com/blog/openai-compatibility
