@@ -1,5 +1,6 @@
 __import__('pysqlite3')
 import sys
+import gradio as gr
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 from langchain_groq import ChatGroq
@@ -9,7 +10,7 @@ from embeddings.embedder import create_embeddings
 from retrievers.retriever import create_retriever
 from prompts.prompt_handler import before_rag, after_rag
 
-from configs.config import URLs, MODEL_NAME, CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL, GROQ_API_KEY
+from configs.config import MODEL_NAME, CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL, GROQ_API_KEY
 
 if GROQ_API_KEY:
     model_client = ChatGroq(
@@ -19,17 +20,34 @@ if GROQ_API_KEY:
 else:
     model_client = ChatOllama(model=MODEL_NAME)
 
-# 1. Charger et diviser les documents
-docs_list = load_documents(URLs)
-doc_splits = create_embeddings(docs_list, CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL)
+def process_input(urls, question):
+    
+    if not urls.strip():
+        return before_rag(model_client, question)
+    
+    urls_list = urls.strip().split('\n')
 
-# 2. Créer le retriever
-retriever = create_retriever(doc_splits, EMBEDDING_MODEL)
+    # 1. Charger et diviser les documents
+    docs_list = load_documents(urls_list)
+    doc_splits = create_embeddings(docs_list, CHUNK_SIZE, CHUNK_OVERLAP, EMBEDDING_MODEL)
 
-# 3. Question avant RAG
-print("Before RAG\n")
-print(before_rag(model_client, "Ollama"))
+    # 2. Créer le retriever
+    retriever = create_retriever(doc_splits, EMBEDDING_MODEL)
 
-# 4. Question après RAG
-print("\n########\nAfter RAG\n")
-print(after_rag(retriever, model_client, "What is Ollama?"))
+    # 3. Question avant RAG
+    # print("Before RAG\n")
+    # print(before_rag(model_client, "Ollama"))
+
+    # 4. Question après RAG
+    # print("\n########\nAfter RAG\n")
+    # print(after_rag(retriever, model_client, "What is Ollama?"))
+
+    return after_rag(retriever, model_client, question)
+
+# Define Gradio interface
+iface = gr.Interface(fn=process_input,
+                     inputs=[gr.Textbox(label="Enter URLs separated by new lines"), gr.Textbox(label="Question")],
+                     outputs="text",
+                     title="Document Query with Ollama",
+                     description="Enter URLs and a question to query the documents.")
+iface.launch()
